@@ -40,7 +40,7 @@ def plugin_unload():
 
 plugin_info = {
     "category_name": "torrent",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "name": "tf_viewer",
     "home": "https://github.com/wiserain/tf_viewer",
     "more": "https://github.com/wiserain/tf_viewer",
@@ -91,7 +91,7 @@ def detail(sub):
     elif sub == 'down' and request.method == 'GET':
         try:
             return Logic.tf_down(
-                request.query_string,
+                request.query_string.decode('utf-8'),
                 item_no=request.args.get('item_no', '0')
             )
         except Exception as e:
