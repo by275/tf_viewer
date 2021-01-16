@@ -1,0 +1,267 @@
+{% extends "base.html" %} {% block content %}
+
+<form class="mt-2" id="search_form">
+    <div class="input-group" style="display:flex; flex-grow:1;">
+        <input name="search" type="text" class="form-control border-right-0 border" value="" id="search" aria-describedby="basic-addon3">
+        <div class="input-group-append">
+            <button class="btn btn-outline-secondary border-left-0 border" type="submit" id="search_btn">
+            <i class="fa fa-search"></i>
+            </button>
+        </div>
+    </div>
+</form>
+
+
+<small class="text-muted mt-0 ml-2" id="item-loaded"></small>
+
+<ul class="list-group mt-3 mb-3" id="article-list">
+    <template id="item-template">
+        <li class="list-group-item">
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1 text-truncate" style="flex: 1;">
+                    <a href="" target="_blank" rel="noopener noreferrer" id="item-name"></a>
+                </h6>
+                <a href="#" class="small badge badge-success" id="subtitle"></a>
+            </div>
+            <div class="collapse" id="more-items"></div>
+            {# <img src="" witdh="116" height="118" class="rounded float-left mt-1 mr-2" id="poster"></a>
+            <p class="mb-0 small text-truncate">
+                <a href="" title="" target="_blank" rel="noopener noreferrer" id="vod_info"></a>
+            </p>
+            <p class="mb-0 small text-truncate">
+                <a href="" title="" target="_blank" rel="noopener noreferrer" id="program_info"></a>
+            </p>
+            <div id="description"></div>
+            <p class="mb-0 small text-truncate" id="air_info"></p> #}
+        </li>
+    </template>
+</ul>
+
+<!-- element to trigger the IntersectionObserver -->
+<div class="d-flex justify-content-center mb-3" id="sentinel">
+    <div class="spinner-border" role="status"></div>
+</div>
+<!--전체-->
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.7.0/animate.min.css">
+
+<!--context menu-->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.8.0/jquery.contextMenu.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.8.0/jquery.contextMenu.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.8.0/jquery.ui.position.js"></script>
+
+<style type="text/css">
+.small, small { font-size: 95%; }
+</style>
+
+<script type="text/javascript">
+    var package_name = "{{arg['package_name']}}";
+    var b_id = "{{sub}}";
+    var list_url_base = `/${package_name}/ajax/list?b_id=${b_id}`;
+
+    // Get references to the dom elements
+    var scroller = document.querySelector("#article-list");
+    var template = document.querySelector('#item-template');
+    var loaded = document.querySelector("#item-loaded");
+    var sentinel = document.querySelector('#sentinel');
+
+    var counter = 0;
+    var page = 1;
+    var list_url = list_url_base;
+
+    // Function to request new items and render to the dom
+    // https://pythonise.com/categories/javascript/infinite-lazy-loading
+    function loadItems() {
+        // Use fetch to request data and pass the page value in the QS
+        fetch(`${list_url}&page=${page}`).then((response) => {
+            response.json().then((res) => {
+                if (!res.success) {
+                    sentinel.innerHTML = `ERROR: ${res.log}`;
+                    return;
+                }
+                var item_list = res.list;
+                if (!item_list.length) { 
+                    sentinel.innerHTML = "No more items";
+                    loaded.innerText = `${counter}개의 결과`;
+                    return;
+                }
+                // Iterate over the items in the response
+                for (var i = 0; i < item_list.length; i++) {
+                    render_single_item(item_list[i], false);
+                    // Increment the page
+                    counter += 1;
+                    // Update the counter
+                    loaded.innerText = `${counter}개의 결과`;
+                }
+                page += 1;
+            })
+        })
+    }
+
+    // Create a new IntersectionObserver instance
+    var intersectionObserver = new IntersectionObserver(entries => {
+        // Uncomment below to see the entry.intersectionRatio when
+        // the sentinel comes into view
+
+        // entries.forEach(entry => {
+        //   console.log(entry.intersectionRatio);
+        // })
+
+        // If intersectionRatio is 0, the sentinel is out of view
+        // and we don't need to do anything. Exit the function
+        if (entries[0].intersectionRatio <= 0) {
+            return;
+        }
+
+        // Call the loadItems function
+        loadItems();
+    });
+
+    // Instruct the IntersectionObserver to watch the sentinel
+    intersectionObserver.observe(sentinel);
+
+    function reloadItems(list_url_params='') {
+        list_url = list_url_base + list_url_params;
+        intersectionObserver.unobserve(sentinel);
+        scroller.querySelectorAll('*').forEach(n => n.remove());
+        page = 1;
+        counter = 0;
+        intersectionObserver.observe(sentinel);
+    }
+
+    $("#search_form").submit(function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var keyword = $("[name='search']", form).val();
+        reloadItems(`&search=${encodeURIComponent(keyword)}`);
+    });
+
+    function render_single_item(data) {        
+        // Clone the HTML template
+        let template_clone = template.content.cloneNode(true);
+
+        template_clone.querySelector("#item-name").innerHTML = data.title;
+        template_clone.querySelector("#item-name").href = `/${package_name}/down?${data.link}`;
+        if (data.subtitle) {
+            template_clone.querySelector("#subtitle").innerHTML = '자막';
+            template_clone.querySelector("#subtitle").href = `/${package_name}/down?${data.link}`;
+        }
+
+        // Append template to dom
+        scroller.appendChild(template_clone);
+    }
+
+    
+    $(function(){
+        $.contextMenu({
+            selector: 'h6 > a',
+            trigger: 'left',
+            callback: function(key, options) {
+                if (key === "save_item") {
+                    // TODO: seems not working in iOS safari
+                    window.open($(this).attr('href'), "_blank");
+                } else if (key === "open_src_url") {
+                    $.ajax({
+                        url: `/${package_name}/ajax/get_src_url`,
+                        type: 'POST',
+                        cache: false,
+                        data: {
+                            'href': $(this).attr('href')
+                        },
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.success) {
+                                window.open(data.url, "_blank");    // 새창에서 열기
+                            } else {
+                                $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
+                                    type: 'warning'
+                                });
+                            }
+                        }
+                    });
+                } else if (key === "torrent_info") {
+                    $.ajax({
+                        url: `/${package_name}/ajax/get_torrent_info`,
+                        type: 'POST',
+                        cache: false,
+                        data: {
+                            'href': $(this).attr('href')
+                        },
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.success) {                    
+                                document.getElementById("modal_title").innerHTML = '토렌트 정보';
+                                document.getElementById("modal_body").innerHTML = "<pre>"+JSON.stringify(data.info, null, 2) + "</pre>";
+                                $("#large_modal").modal();
+                            } else {
+                                $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
+                                    type: 'warning'
+                                });
+                            }
+                        }
+                    });
+                }
+            },
+            items: {
+                "save_item": {
+                    name: "파일로 저장",
+                    icon: "fa-floppy-o"
+                },
+                "download_to": {
+                    name: "... 로 다운로드",
+                    icon: "fa-cloud-download",
+                    "items": {
+                        "down2default": {"name": "TODO", "disabled": true}
+                    }
+                },
+                "sep2": "---------",
+                "open_src_url": {
+                    name: "출처",
+                    icon: "fa-link"
+                },
+                "torrent_info": {
+                    name: "토렌트 정보",
+                    icon: "fa-info-circle"
+                }
+            }
+        });
+    });
+
+    $("body").on('click', 'a#subtitle', function(e) {
+        e.preventDefault();
+        let src_url = $(this).attr('href');
+        if ($(this).closest('li').find('#more-items').is('.collapse:not(.show)')) {            
+            $.ajax({
+                url: `/${package_name}/ajax/get_more`,
+                type: 'POST',
+                cache: false,
+                context: this,
+                data: {
+                    'href': $(this).attr('href')
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data.success && data.items.length > 1) {                        
+                        ret = '';
+                        for (var i = 1; i < data.items.length; i++) {
+                            ret += `<p class="mb-0 small text-truncate"><a href="${src_url}&item_no=${i}" rel="noopener noreferrer" target="_blank">${data.items[i].filename}</a></p>`;
+                        };
+                        $(this).closest('li').find('#more-items').html(ret);
+                        $(this).closest('li').find('#more-items').collapse('show');
+                    } else {
+                        $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
+                            type: 'warning'
+                        });
+                    }
+                }
+            });
+        } else {
+            $(this).closest('li').find('#more-items').collapse('hide')
+        }
+    });
+
+</script>
+
+
+{% endblock %}
