@@ -143,8 +143,8 @@
 
         template_clone.querySelector("#item-name").innerHTML = data.title;
         template_clone.querySelector("#item-name").href = `/${package_name}/down?${data.link}`;
-        if (data.subtitle) {
-            template_clone.querySelector("#subtitle").innerHTML = '자막';
+        if (Boolean(data.subtitle)) {
+            template_clone.querySelector("#subtitle").innerHTML = data.subtitle;
             template_clone.querySelector("#subtitle").href = `/${package_name}/down?${data.link}`;
         }
 
@@ -242,9 +242,9 @@
                 },
                 dataType: "json",
                 success: function (data) {
-                    if (data.success && data.items.length > 1) {                        
+                    if (data.success) {                        
                         ret = '';
-                        for (var i = 1; i < data.items.length; i++) {
+                        for (var i = 0; i < data.items.length; i++) {
                             ret += `<p class="mb-0 small text-truncate"><a href="${src_url}&item_no=${i}" rel="noopener noreferrer" target="_blank">${data.items[i].filename}</a></p>`;
                         };
                         $(this).closest('li').find('#more-items').html(ret);

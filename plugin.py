@@ -40,7 +40,7 @@ def plugin_unload():
 
 plugin_info = {
     "category_name": "torrent",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "name": "tf_viewer",
     "home": "https://github.com/wiserain/tf_viewer",
     "more": "https://github.com/wiserain/tf_viewer",
@@ -136,7 +136,11 @@ def ajax(sub):
             href = p.get('href', '')
             if href:
                 src_url = ModelSetting.get('site_url').rstrip('/') + '/board.php?' + href.split('?')[1]
-                return jsonify({'success': True, 'items': Logic.tf_view(src_url)['items']})
+                items = Logic.tf_view(src_url)['items']
+                if items and len(items) > 0:
+                    return jsonify({'success': True, 'items': items})
+                else:
+                    return jsonify({'success': False, 'log': '다운로드 가능한 링크를 찾을 수 없음'})
     except Exception as e:
         logger.error('Exception: %s', str(e))
         logger.error(traceback.format_exc())

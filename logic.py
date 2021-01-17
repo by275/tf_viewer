@@ -116,11 +116,11 @@ class Logic(object):
 
         for list_item in doc.xpath('//div[@class="list_subject" and a[contains(@class,"stitle")]]'):
             subject = list_item.xpath('./a[contains(@class, "stitle")]')[0]
-            subtitle = list_item.xpath(u'./span[contains(text(), "한글")]')
+            subtitle = list_item.xpath('./span[contains(@class, "bo_sub")]')
             item = {
                 'title': subject.text_content().strip(),
                 'link': subject.get('href').split('?')[1],
-                'subtitle': bool(subtitle),
+                'subtitle': subtitle[0].text_content().strip() if subtitle else '',
             }
             items.append(item)
         return items
@@ -173,7 +173,7 @@ class Logic(object):
         
         item_no = int(item_no)
         down_url = view['items'][item_no]['url']
-        filename = view['items'][item_no]['filename']
+        filename = str(view['items'][item_no]['filename'])
 
         if 'download.php' in down_url:
             fcontent = Logic.session.get(down_url).content
@@ -188,7 +188,7 @@ class Logic(object):
             import libtorrent
             torrent_dict = libtorrent.bdecode(fcontent)
             torrent_info = libtorrent.torrent_info(torrent_dict)
-            torrent_name = torrent_info.name().encode()
+            torrent_name = torrent_info.name()
             resp.headers['Content-Type'] = 'application/x-bittorrent'
 
             # 가끔 본문의 파일명에 &가 scrub 되는 경우가 있다.
