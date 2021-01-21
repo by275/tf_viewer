@@ -8,14 +8,13 @@ import traceback
 from datetime import datetime
 
 try:
-    from urllib import quote, unquote  # Python 2.X
+    from urllib import unquote  # Python 2.X
 except ImportError:
-    from urllib.parse import quote, unquote  # Python 3+
+    from urllib.parse import unquote  # Python 3+
 
 # third-party
 import requests
 from lxml import html
-from flask import Response
 
 # sjva 공용
 from framework import db, scheduler, app
@@ -164,46 +163,41 @@ class Logic(object):
         }
 
     @staticmethod
-    def tf_down(query_string, item_no='0'):
+    def tf_down(query_string, item_no=0):
         src_url = ModelSetting.get('site_url').rstrip('/') + '/board.php?' + query_string
         
         view = Logic.tf_view(src_url)
 
         Logic.session.headers.update({'Referer': src_url})
         
-        item_no = int(item_no)
         down_url = view['items'][item_no]['url']
         filename = str(view['items'][item_no]['filename'])
 
         if 'download.php' in down_url:
             fcontent = Logic.session.get(down_url).content
-            resp = Response(fcontent)
         else:
             fcontent = Logic.download_filetender(down_url, filename)
-            resp = Response(fcontent)
-        resp.headers['Content-Type'] = 'application/octet-stream'
-        resp.headers['Content-Disposition'] = "attachment; filename*=UTF-8''{}".format(quote(filename.encode('utf8')))
         
-        try:
-            import libtorrent
-            torrent_dict = libtorrent.bdecode(fcontent)
-            torrent_info = libtorrent.torrent_info(torrent_dict)
-            torrent_name = torrent_info.name()
-            resp.headers['Content-Type'] = 'application/x-bittorrent'
+        # try:
+        #     import libtorrent
+        #     torrent_dict = libtorrent.bdecode(fcontent)
+        #     torrent_info = libtorrent.torrent_info(torrent_dict)
+        #     torrent_name = torrent_info.name()
+        #     resp.headers['Content-Type'] = 'application/x-bittorrent'
 
-            # 가끔 본문의 파일명에 &가 scrub 되는 경우가 있다.
-            torrent_name_scrub = torrent_name.replace('& ', '').replace(' &', '').replace('&', ' ')
-            filename_scrub = filename.replace('.torrent', '')
-            chklen = int(min(len(torrent_name_scrub), len(filename_scrub))*0.4)
-            if torrent_name_scrub[:chklen] != filename_scrub[:chklen]:
-                # 여기서 raise Error 해주지 않으면 잘못된 torrent가 filetender로부터 유입돼도 OK됨
-                raise ValueError('torrent filename %s is different from expected %s' % (torrent_name_scrub, filename))
-                # filename = torrent_name + '.torrent'
-        except Exception as e:
-            logger.error('Exception: %s', str(e))
-            logger.error(traceback.format_exc())
+        #     # 가끔 본문의 파일명에 &가 scrub 되는 경우가 있다.
+        #     torrent_name_scrub = torrent_name.replace('& ', '').replace(' &', '').replace('&', ' ')
+        #     filename_scrub = filename.replace('.torrent', '')
+        #     chklen = int(min(len(torrent_name_scrub), len(filename_scrub))*0.4)
+        #     if torrent_name_scrub[:chklen] != filename_scrub[:chklen]:
+        #         # 여기서 raise Error 해주지 않으면 잘못된 torrent가 filetender로부터 유입돼도 OK됨
+        #         raise ValueError('torrent filename %s is different from expected %s' % (torrent_name_scrub, filename))
+        #         # filename = torrent_name + '.torrent'
+        # except Exception as e:
+        #     logger.error('Exception: %s', str(e))
+        #     logger.error(traceback.format_exc())
 
-        return resp
+        return fcontent, filename
 
     @staticmethod
     def download_filetender(ftender_short, filename):

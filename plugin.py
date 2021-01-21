@@ -8,6 +8,12 @@ import re
 import json
 import traceback
 
+try:
+    from urllib import quote  # Python 2.X
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import quote, parse_qs  # Python 3+
+
 # third-party
 from flask import Blueprint, request, render_template, redirect, jsonify, Response
 from flask_login import login_required
@@ -40,7 +46,7 @@ def plugin_unload():
 
 plugin_info = {
     "category_name": "torrent",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "name": "tf_viewer",
     "home": "https://github.com/wiserain/tf_viewer",
     "more": "https://github.com/wiserain/tf_viewer",
@@ -90,10 +96,14 @@ def detail(sub):
         return render_template('%s_list.html' % package_name, sub=sub, arg=arg)
     elif sub == 'down' and request.method == 'GET':
         try:
-            return Logic.tf_down(
+            fcontent, filename = Logic.tf_down(
                 request.query_string.decode('utf-8'),
-                item_no=request.args.get('item_no', '0')
+                item_no=int(request.args.get('item_no', '0'))
             )
+            resp = Response(fcontent)
+            resp.headers['Content-Type'] = 'application/' + ('x-bittorrent' if filename.endswith('.torrent') else 'octet-stream')
+            resp.headers['Content-Disposition'] = "attachment; filename*=UTF-8''{}".format(quote(filename.encode('utf8')))
+            return resp
         except Exception as e:
             logger.error('Exception: %s', str(e))
             logger.error(traceback.format_exc())
@@ -129,9 +139,11 @@ def ajax(sub):
         elif sub == 'get_torrent_info':
             href = p.get('href', '')
             if href:
-                url = request.url_root + href
+                query_string = href.split('?')[1]
+                item_no = int(parse_qs(query_string).get('item_no', '0'))
+                fcontent, _ = Logic.tf_down(query_string, item_no=item_no)
                 from torrent_info import Logic as TorrentInfoLogic
-                return jsonify({'success': True, 'info': TorrentInfoLogic.parse_torrent_url(url)})
+                return jsonify({'success': True, 'info': TorrentInfoLogic.parse_torrent_file(fcontent)})
         elif sub == 'get_more':
             href = p.get('href', '')
             if href:
