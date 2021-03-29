@@ -59,6 +59,9 @@
     var package_name = "{{arg['package_name']}}";
     var b_id = "{{sub}}";
     var list_url_base = `/${package_name}/ajax/list?b_id=${b_id}`;
+    var offcloud_disabled = "{{arg['offcloud_installed']}}" === "False";
+    var downloader_disabled = "{{arg['downloader_installed']}}" === "False";
+    var torrent_info_disabled = "{{arg['torrent_info_installed']}}" === "False";
 
     // Get references to the dom elements
     var scroller = document.querySelector("#article-list");
@@ -159,9 +162,10 @@
             trigger: 'left',
             callback: function(key, options) {
                 if (key === "save_item") {
-                    // TODO: seems not working in iOS safari
                     window.open($(this).attr('href'), "_blank");
                 } else if (key === "open_src_url") {
+                    // iOS safari built-in pop-up blocker does not allow window.open() inside ajax call
+                    var windowReference = window.open();
                     $.ajax({
                         url: `/${package_name}/ajax/get_src_url`,
                         type: 'POST',
@@ -172,7 +176,7 @@
                         dataType: "json",
                         success: function (data) {
                             if (data.success) {
-                                window.open(data.url, "_blank");    // 새창에서 열기
+                                windowReference.location = data.url;
                             } else {
                                 $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
                                     type: 'warning'
@@ -201,28 +205,99 @@
                             }
                         }
                     });
+                } else if (key.startsWith("offcloud_")) {
+                    $.ajax({
+                        url: `/${package_name}/ajax/get_torrent_info`,
+                        type: 'POST',
+                        cache: false,
+                        data: {
+                            'href': $(this).attr('href')
+                        },
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.success) {
+                                var $tempElement = $("<button>");
+                                if (key.endsWith("_cache")) {
+                                    $tempElement.attr("id","global_offcloud_cache_confirm_btn");
+                                } else if (key.endsWith("_add")) {
+                                    $tempElement.attr("id","global_offcloud_add_btn");
+                                }
+                                $tempElement.attr("data-hash",data.info.magnet_uri);
+                                $("body").append($tempElement);
+                                $tempElement.click();
+                                $tempElement.remove();
+                            } else {
+                                $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
+                                    type: 'warning'
+                                });
+                            }
+                        }
+                    });
+                } else if (key.startsWith("down2path_")) {
+                    $.ajax({
+                        url: `/${package_name}/ajax/get_torrent_info`,
+                        type: "POST", 
+                        cache: false,
+                        data: {'href': $(this).attr('href')},
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.success) {
+                                $.ajax({
+                                    url: `/${package_name}/ajax/add_download`,
+                                    type: "POST", 
+                                    cache: false,
+                                    data: {'magnet': data.info.magnet_uri, 'download_path_id': key},
+                                    dataType: "json",
+                                    success: function (data) {
+                                        if (data.success) {
+                                            $.notify('<strong>다운로드 추가하였습니다.</strong>', {
+                                                type: 'success'
+                                            });
+                                        } else {
+                                            $.notify('<strong>다운로드 추가에 실패하였습니다.</strong><br>' + data.log, {
+                                                type: 'warning'
+                                            });
+                                        }
+                                    }
+                                });
+                            } else {
+                                $.notify('<strong>마그넷 추출에 실패하였습니다.</strong><br>' + data.log, {
+                                    type: 'warning'
+                                });
+                            }
+                        }
+                    });
                 }
             },
             items: {
+                "download_to": {
+                    name: "다운로드 추가",
+                    icon: "fa-cloud",
+                    disabled: (downloader_disabled || torrent_info_disabled),
+                    "items": {{ download_path|tojson|safe }}
+                },
+                "offcloud": {
+                    name: "Offcloud",
+                    icon: "fa-cloud-download",
+                    disabled: (offcloud_disabled || torrent_info_disabled),
+                    "items": {
+                        "offcloud_cache": {"name": "캐시 확인", "icon": "fa-check-square-o"},
+                        "offcloud_add": {"name": "다운로드 추가", "icon": "fa-plus-square-o"}
+                    }
+                },
+                "sep2": "---------",
                 "save_item": {
                     name: "파일로 저장",
                     icon: "fa-floppy-o"
                 },
-                "download_to": {
-                    name: "... 로 다운로드",
-                    icon: "fa-cloud-download",
-                    "items": {
-                        "down2default": {"name": "TODO", "disabled": true}
-                    }
+                "torrent_info": {
+                    name: "토렌트 정보",
+                    icon: "fa-info-circle",
+                    disabled: torrent_info_disabled
                 },
-                "sep2": "---------",
                 "open_src_url": {
                     name: "출처",
                     icon: "fa-link"
-                },
-                "torrent_info": {
-                    name: "토렌트 정보",
-                    icon: "fa-info-circle"
                 }
             }
         });

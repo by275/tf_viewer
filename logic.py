@@ -35,6 +35,8 @@ class Logic(object):
     db_default = {
         'site_url': '',
         'http_proxy': '',
+        'download_program': '0',
+        'download_path': '',
     }
 
     session = None
@@ -148,10 +150,12 @@ class Logic(object):
                 item['type'] = 'subtitle'
                 item['filename'] = html_item.xpath('./a')[0].text_content().strip()
                 item['url'] = html_item.xpath('./a')[0].get('href')
-            else:
+            elif html_item.xpath('./a'):
                 item['type'] = 'etc'
                 item['filename'] = html_item.xpath('./a')[0].text_content().strip()
                 item['url'] = html_item.xpath('./a')[0].get('href')
+            else:
+                continue
             items.append(item)
         logger.debug('Found {} items'.format(len(items)))
 

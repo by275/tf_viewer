@@ -12,6 +12,8 @@
         <form id="setting" name="setting">
             {{ macros.setting_input_text('site_url', '사이트 주소', value=arg['site_url']) }}
             {{ macros.setting_input_text('http_proxy', 'HTTP Proxy', value=arg['http_proxy'], desc=['프록시 주소']) }}
+            {{ macros.setting_radio('download_program', '다운로드 프로그램', ['트랜스미션', '다운로드 스테이션', '큐빗토렌트', 'aria2'], value=arg['download_program']) }}
+            {{ macros.setting_input_textarea('download_path', '다운로드 경로', value=arg['download_path'], row='5', desc=['추가 다운로드 경로 설정. Enter로 구분', '없으면 다운로드 클라이언트 기본 경로.']) }}
             {{ macros.setting_button([['global_setting_save_btn', '저장']]) }}
         </form>
         {{ macros.m_tab_content_end() }}

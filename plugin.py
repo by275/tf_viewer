@@ -5,7 +5,6 @@
 # python
 import os
 import re
-import json
 import traceback
 
 try:
@@ -46,13 +45,13 @@ def plugin_unload():
 
 plugin_info = {
     "category_name": "torrent",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "name": "tf_viewer",
     "home": "https://github.com/wiserain/tf_viewer",
     "more": "https://github.com/wiserain/tf_viewer",
     "description": "TF 실시간 정보를 보여주는 SJVA 플러그인",
     "developer": "wiserain",
-    "zip": "https://github.com/wiserain/tf_viewer/archive/master.zip",
+    "zip": "https://github.com/wiserain/tf_viewer/archive/main.zip",
     "icon": "",
 }
 #########################################################
@@ -92,8 +91,27 @@ def detail(sub):
         return render_template('%s_setting.html' % package_name, sub=sub, arg=arg)
     elif sub.startswith('t'):
         arg = ModelSetting.to_dict()
-        arg['package_name'] = package_name
-        return render_template('%s_list.html' % package_name, sub=sub, arg=arg)
+        arg.update({
+            'package_name': package_name,
+            'downloader_installed': True,
+            'offcloud_installed': True,
+            'torrent_info_installed': True,
+        })
+        try:
+            import downloader
+        except ImportError:
+            arg['downloader_installed'] = False
+        try:
+            import offcloud2
+        except ImportError:
+            arg['offcloud_installed'] = False
+        try:
+            import torrent_info
+        except ImportError:
+            arg['torrent_info_installed'] = False
+        download_path = [''] + [x.strip() for x in arg['download_path'].split('\n') if x.strip()]
+        download_path = {'down2path_{}'.format(i): {'name': v if v else 'default', 'icon': 'fa-folder-o'} for i, v in enumerate(download_path)}
+        return render_template('%s_list.html' % package_name, sub=sub, arg=arg, download_path=download_path)
     elif sub == 'down' and request.method == 'GET':
         try:
             fcontent, filename = Logic.tf_down(
@@ -153,6 +171,21 @@ def ajax(sub):
                     return jsonify({'success': True, 'items': items})
                 else:
                     return jsonify({'success': False, 'log': '다운로드 가능한 링크를 찾을 수 없음'})
+        elif sub == 'add_download':            
+            try:
+                import downloader
+                magnet = p.get('magnet', '')
+                path_id = p.get('download_path_id')
+                path_id = int(path_id.split('_')[1])
+                path_list = [''] + [x.strip() for x in ModelSetting.get('download_path').split('\n') if x.strip()]
+                download_path = path_list[path_id]
+                result = downloader.Logic.add_download2(
+                    magnet, ModelSetting.get('download_program'), download_path, request_type=package_name, request_sub_type=''
+                )
+                logger.debug(result)
+                return jsonify({'success': True})
+            except Exception as e:
+                raise e
     except Exception as e:
         logger.error('Exception: %s', str(e))
         logger.error(traceback.format_exc())
