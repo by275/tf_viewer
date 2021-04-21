@@ -20,19 +20,11 @@
             <div class="d-flex w-100 justify-content-between">
                 <h6 class="mb-1 text-truncate" style="flex: 1;">
                     <a href="" target="_blank" rel="noopener noreferrer" id="item-name"></a>
+                    <a href="#" class="ml-1 badge badge-secondary" style="vertical-align: top;" id="subtitle"></a>
                 </h6>
-                <a href="#" class="small badge badge-success" id="subtitle"></a>
+                <small class="text-muted" id="datetime"></a>
             </div>
             <div class="collapse" id="more-items"></div>
-            {# <img src="" witdh="116" height="118" class="rounded float-left mt-1 mr-2" id="poster"></a>
-            <p class="mb-0 small text-truncate">
-                <a href="" title="" target="_blank" rel="noopener noreferrer" id="vod_info"></a>
-            </p>
-            <p class="mb-0 small text-truncate">
-                <a href="" title="" target="_blank" rel="noopener noreferrer" id="program_info"></a>
-            </p>
-            <div id="description"></div>
-            <p class="mb-0 small text-truncate" id="air_info"></p> #}
         </li>
     </template>
 </ul>
@@ -146,6 +138,7 @@
 
         template_clone.querySelector("#item-name").innerHTML = data.title;
         template_clone.querySelector("#item-name").href = `/${package_name}/down?${data.link}`;
+        template_clone.querySelector("#datetime").innerHTML = data.datetime;
         if (Boolean(data.subtitle)) {
             template_clone.querySelector("#subtitle").innerHTML = data.subtitle;
             template_clone.querySelector("#subtitle").href = `/${package_name}/down?${data.link}`;
@@ -158,7 +151,7 @@
     
     $(function(){
         $.contextMenu({
-            selector: 'h6 > a',
+            selector: 'h6 > a#item-name',
             trigger: 'left',
             callback: function(key, options) {
                 if (key === "save_item") {

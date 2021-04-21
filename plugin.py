@@ -45,7 +45,7 @@ def plugin_unload():
 
 plugin_info = {
     "category_name": "torrent",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "name": "tf_viewer",
     "home": "https://github.com/wiserain/tf_viewer",
     "more": "https://github.com/wiserain/tf_viewer",

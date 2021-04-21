@@ -115,13 +115,15 @@ class Logic(object):
         res = Logic.session.get(src_url)
         doc = html.fromstring(res.content)
 
-        for list_item in doc.xpath('//div[@class="list_subject" and a[contains(@class,"stitle")]]'):
-            subject = list_item.xpath('./a[contains(@class, "stitle")]')[0]
-            subtitle = list_item.xpath('./span[contains(@class, "bo_sub")]')
+        for list_item in doc.xpath('//tr[td/div[@class="list_subject" and a[contains(@class,"stitle")]]]'):
+            subject = list_item.xpath('./td/div/a[contains(@class, "stitle")]')[0]
+            subtitle = list_item.xpath('./td/div/span[contains(@class, "bo_sub")]')
+            dtime = list_item.xpath('./td[@class="datetime"]')
             item = {
                 'title': subject.text_content().strip(),
                 'link': subject.get('href').split('?')[1],
                 'subtitle': subtitle[0].text_content().strip() if subtitle else '',
+                'datetime': dtime[0].text_content().strip() if dtime else '',
             }
             items.append(item)
         return items
