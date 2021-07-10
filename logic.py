@@ -1,70 +1,42 @@
 # -*- coding: utf-8 -*-
-#########################################################
-# python
-import os
 import re
-import sys
 import traceback
 from datetime import datetime
-
-try:
-    from urllib import unquote  # Python 2.X
-except ImportError:
-    from urllib.parse import unquote  # Python 3+
+from urllib.parse import unquote, quote, parse_qs
 
 # third-party
+from flask import request, render_template, jsonify, Response
 import requests
 from lxml import html
 
-# sjva 공용
-from framework import db, scheduler, app
-from framework.util import Util
+# app common
+from framework.common.plugin import LogicModuleBase
 
-# 패키지
-from .plugin import logger, package_name
-from .model import ModelSetting
+# local
+from .plugin import plugin
+
+logger = plugin.logger
+package_name = plugin.package_name
+ModelSetting = plugin.ModelSetting
 
 ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' \
      'Chrome/69.0.3497.100 Safari/537.36'
 
-#########################################################
 
-
-class Logic(object):
-    # 디폴트 세팅값
+class LogicMain(LogicModuleBase):
     db_default = {
         'site_url': '',
         'http_proxy': '',
         'download_program': '0',
         'download_path': '',
     }
-
-    session = None
-
-    @staticmethod
-    def db_init():
+    
+    def __init__(self, P):
+        super(LogicMain, self).__init__(P, None)
+        self.session = None
+    
+    def plugin_load(self):
         try:
-            for key, value in Logic.db_default.items():
-                if db.session.query(ModelSetting).filter_by(key=key).count() == 0:
-                    db.session.add(ModelSetting(key, value))
-            db.session.commit()
-        except Exception as e:
-            logger.error('Exception: %s', str(e))
-            logger.error(traceback.format_exc())
-
-    @staticmethod
-    def plugin_load():
-        try:
-            # DB 초기화
-            Logic.db_init()
-
-            # 편의를 위해 json 파일 생성
-            from .plugin import plugin_info
-            Util.save_from_dict_to_json(plugin_info, os.path.join(os.path.dirname(__file__), 'info.json'))
-
-            #
-            # 자동시작 옵션이 있으면 보통 여기서
-            #            
             sess = requests.Session()
             sess.headers.update({'User-Agent': ua, 'Referer': None})
             http_proxy = ModelSetting.get('http_proxy')
@@ -74,45 +46,113 @@ class Logic(object):
                     'https': http_proxy
                 }
                 sess.proxies.update(proxies)
-            Logic.session = sess
+            self.session = sess
         except Exception as e:
             logger.error('Exception: %s', str(e))
             logger.error(traceback.format_exc())
 
-    @staticmethod
-    def plugin_unload():
+    def process_menu(self, sub, req):
+        arg = ModelSetting.to_dict()
+        if sub == 'setting':
+            arg['package_name'] = package_name
+            return render_template(f'{package_name}_{sub}.html', sub=sub, arg=arg)
+        elif sub.startswith('t'):
+            arg.update({
+                'package_name': package_name,
+                'downloader_installed': True,
+                'offcloud_installed': True,
+                'torrent_info_installed': True,
+            })
+            try:
+                import downloader
+            except ImportError:
+                arg['downloader_installed'] = False
+            try:
+                import offcloud2
+            except ImportError:
+                arg['offcloud_installed'] = False
+            try:
+                import torrent_info
+            except ImportError:
+                arg['torrent_info_installed'] = False
+            download_path = [''] + [x.strip() for x in arg['download_path'].split('\n') if x.strip()]
+            download_path = {f'down2path_{i}': {'name': v if v else 'default', 'icon': 'fa-folder-o'} for i, v in enumerate(download_path)}
+            return render_template('%s_list.html' % package_name, sub=sub, arg=arg, download_path=download_path)
+        elif sub == 'down' and request.method == 'GET':
+            try:
+                fcontent, filename = self.tf_down(
+                    request.query_string.decode('utf-8'),
+                    item_no=int(request.args.get('item_no', '0'))
+                )
+                resp = Response(fcontent)
+                resp.headers['Content-Type'] = 'application/' + ('x-bittorrent' if filename.endswith('.torrent') else 'octet-stream')
+                resp.headers['Content-Disposition'] = "attachment; filename*=UTF-8''{}".format(quote(filename.encode('utf8')))
+                return resp
+            except Exception as e:
+                logger.error('Exception: %s', str(e))
+                logger.error(traceback.format_exc())
+        return render_template('sample.html', title=f'{package_name} - {sub}')
+
+    def process_ajax(self, sub, req):
         try:
-            logger.debug('%s plugin_unload', package_name)
+            p = request.form.to_dict() if request.method == 'POST' else request.args.to_dict()
+            if sub == 'list':
+                search = p.get('search', '')
+                page = p.get('page', '1')
+                b_id = p.get('b_id')
+
+                ret = self.tf_list(b_id, page=page, search=search)
+                return jsonify({'success': True, 'list': ret, 'nomore': len(ret) != 35})
+            elif sub == 'get_src_url':
+                href = p.get('href', '')
+                if href:
+                    src_url = ModelSetting.get('site_url').rstrip('/') + '/board.php?' + href.split('?')[1]
+                    return jsonify({'success': True, 'url': src_url})
+            elif sub == 'get_torrent_info':
+                href = p.get('href', '')
+                if href:
+                    query_string = href.split('?')[1]
+                    item_no = int(parse_qs(query_string).get('item_no', '0'))
+                    fcontent, _ = self.tf_down(query_string, item_no=item_no)
+                    from torrent_info import Logic as TorrentInfoLogic
+                    return jsonify({'success': True, 'info': TorrentInfoLogic.parse_torrent_file(fcontent)})
+            elif sub == 'get_more':
+                href = p.get('href', '')
+                if href:
+                    src_url = ModelSetting.get('site_url').rstrip('/') + '/board.php?' + href.split('?')[1]
+                    items = self.tf_view(src_url)['items']
+                    if items and len(items) > 0:
+                        return jsonify({'success': True, 'items': items})
+                    else:
+                        return jsonify({'success': False, 'log': '다운로드 가능한 링크를 찾을 수 없음'})
+            elif sub == 'add_download':            
+                try:
+                    import downloader
+                    magnet = p.get('magnet', '')
+                    path_id = p.get('download_path_id')
+                    path_id = int(path_id.split('_')[1])
+                    path_list = [''] + [x.strip() for x in ModelSetting.get('download_path').split('\n') if x.strip()]
+                    download_path = path_list[path_id]
+                    result = downloader.self.add_download2(
+                        magnet, ModelSetting.get('download_program'), download_path, request_type=package_name, request_sub_type=''
+                    )
+                    logger.debug(result)
+                    return jsonify({'success': True})
+                except Exception as e:
+                    raise e
         except Exception as e:
             logger.error('Exception: %s', str(e))
             logger.error(traceback.format_exc())
-
-    @staticmethod
-    def setting_save(req):
-        try:
-            for key, value in req.form.items():
-                logger.debug('Key:%s Value:%s', key, value)
-                entity = db.session.query(ModelSetting).filter_by(key=key).with_for_update().first()
-                entity.value = value
-            db.session.commit()
-            return True
-        except Exception as e:
-            logger.error('Exception: %s', str(e))
-            logger.error(traceback.format_exc())
-            return False
-
-    # 기본 구조 End
-    ##################################################################
-
-    @staticmethod
-    def tf_list(b_id, page='1', search=None):
+            return jsonify({'success': False, 'log': str(e)})
+            
+    def tf_list(self, b_id, page='1', search=None):
         site_url = ModelSetting.get('site_url').rstrip('/')
-        src_url = site_url + '/board.php?mode=list&b_id={}&page={}'.format(b_id, page)
+        src_url = site_url + f'/board.php?mode=list&b_id={b_id}&page={page}'
         if search:
-            src_url += '&sc=%s&x=0&y=0' % search
+            src_url += f'&sc={search}&x=0&y=0'
 
         items = []
-        res = Logic.session.get(src_url)
+        res = self.session.get(src_url)
         doc = html.fromstring(res.content)
 
         for list_item in doc.xpath('//tr[td/div[@class="list_subject" and a[contains(@class,"stitle")]]]'):
@@ -128,9 +168,8 @@ class Logic(object):
             items.append(item)
         return items
 
-    @staticmethod
-    def tf_view(url):
-        res = Logic.session.get(url)
+    def tf_view(self, url):
+        res = self.session.get(url)
         doc = html.fromstring(res.content)
         
         title_proper = doc.xpath('//div[@class="view_title"]')[0].text_content()
@@ -168,21 +207,20 @@ class Logic(object):
             'items': items,
         }
 
-    @staticmethod
-    def tf_down(query_string, item_no=0):
+    def tf_down(self, query_string, item_no=0):
         src_url = ModelSetting.get('site_url').rstrip('/') + '/board.php?' + query_string
         
-        view = Logic.tf_view(src_url)
+        view = self.tf_view(src_url)
 
-        Logic.session.headers.update({'Referer': src_url})
+        self.session.headers.update({'Referer': src_url})
         
         down_url = view['items'][item_no]['url']
         filename = str(view['items'][item_no]['filename'])
 
         if 'download.php' in down_url:
-            fcontent = Logic.session.get(down_url).content
+            fcontent = self.session.get(down_url).content
         else:
-            fcontent = Logic.download_filetender(down_url, filename)
+            fcontent = self.download_filetender(down_url, filename)
         
         # try:
         #     import libtorrent
@@ -205,15 +243,14 @@ class Logic(object):
 
         return fcontent, filename
 
-    @staticmethod
-    def download_filetender(ftender_short, filename):
+    def download_filetender(self, ftender_short, filename):
         """download files from filetender
         :param ftender_short: http://www.filetender.com/UIj7z
         :param filename: Recoil.2011.1080p.BluRay.H264.AAC-RARBG.torrent
         :param referer: http://www.tfreeca22.com/board.php?mode=view&b_id=tmovie&id=359715&page=1
         :return:
         """
-        resp = Logic.session.get(ftender_short)
+        resp = self.session.get(ftender_short)
         doc = html.fromstring(resp.content)
 
         form_method = doc.xpath('//form')[0].get('method')
@@ -228,9 +265,9 @@ class Logic(object):
                 ftender_hidden = re.findall(r'(?:https?://)?[\w/\-?=%.]+\.[\w/\-?=%.]+', script_text)[0]
 
         if form_method.lower() == 'post':
-            res = Logic.session.post(ftender_hidden, data=params)
+            res = self.session.post(ftender_hidden, data=params)
         else:
-            res = Logic.session.get(ftender_hidden, params=params)
+            res = self.session.get(ftender_hidden, params=params)
         res.raise_for_status()
 
         if 'Content-Disposition' in res.headers:
@@ -239,5 +276,5 @@ class Logic(object):
             # 가끔 본문의 파일명에 &가 scrub 되는 경우가 있다.
             fname_from_header = fname_from_header.replace('& ', '').replace(' &', '').replace('&', ' ')
             if filename != fname_from_header:
-                raise ValueError('Filename mismatch: {} != {}'.format(filename, fname_from_header))
+                raise ValueError(f'Filename mismatch: {filename} != {fname_from_header}')
         return res.content

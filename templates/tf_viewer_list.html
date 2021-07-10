@@ -22,7 +22,7 @@
                     <a href="" target="_blank" rel="noopener noreferrer" id="item-name"></a>
                     <a href="#" class="ml-1 badge badge-secondary" style="vertical-align: top;" id="subtitle"></a>
                 </h6>
-                <small class="text-muted" id="datetime"></a>
+                <span class="font-weight-normal" id="datetime"></span>
             </div>
             <div class="collapse" id="more-items"></div>
         </li>
@@ -75,21 +75,18 @@
                     sentinel.innerHTML = `ERROR: ${res.log}`;
                     return;
                 }
-                var item_list = res.list;
-                if (!item_list.length) { 
-                    sentinel.innerHTML = "No more items";
-                    loaded.innerText = `${counter}개의 결과`;
-                    return;
-                }
                 // Iterate over the items in the response
-                for (var i = 0; i < item_list.length; i++) {
-                    render_single_item(item_list[i], false);
+                for (var i = 0; i < res.list.length; i++) {
+                    render_single_item(res.list[i], false);
                     // Increment the page
                     counter += 1;
                     // Update the counter
                     loaded.innerText = `${counter}개의 결과`;
                 }
                 page += 1;
+                if (res.nomore) {
+                    sentinel.innerHTML = "No more items";
+                }
             })
         })
     }
@@ -122,6 +119,8 @@
         scroller.querySelectorAll('*').forEach(n => n.remove());
         page = 1;
         counter = 0;
+        loaded.innerText = `${counter}개의 결과`;
+        sentinel.innerHTML = `<div class="spinner-border" role="status"></div>`;
         intersectionObserver.observe(sentinel);
     }
 
@@ -139,6 +138,9 @@
         template_clone.querySelector("#item-name").innerHTML = data.title;
         template_clone.querySelector("#item-name").href = `/${package_name}/down?${data.link}`;
         template_clone.querySelector("#datetime").innerHTML = data.datetime;
+        if (data.datetime.includes(":")) {
+            template_clone.querySelector("#datetime").setAttribute('class', 'font-weight-bold');
+        }
         if (Boolean(data.subtitle)) {
             template_clone.querySelector("#subtitle").innerHTML = data.subtitle;
             template_clone.querySelector("#subtitle").href = `/${package_name}/down?${data.link}`;

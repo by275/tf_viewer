@@ -1,1 +1,11 @@
-{"category_name": "torrent", "version": "0.0.6", "name": "tf_viewer", "home": "https://github.com/wiserain/tf_viewer", "more": "https://github.com/wiserain/tf_viewer", "description": "TF \uc2e4\uc2dc\uac04 \uc815\ubcf4\ub97c \ubcf4\uc5ec\uc8fc\ub294 SJVA \ud50c\ub7ec\uadf8\uc778", "developer": "wiserain", "zip": "https://github.com/wiserain/tf_viewer/archive/main.zip", "icon": ""}
+{
+    "category_name": "torrent",
+    "version": "0.1.0",
+    "name": "tf_viewer",
+    "home": "https://github.com/wiserain/tf_viewer",
+    "more": "https://github.com/wiserain/tf_viewer",
+    "description": "TF 실시간 정보를 보여주는 플러그인",
+    "developer": "wiserain",
+    "zip": "https://github.com/wiserain/tf_viewer/archive/main.zip",
+    "icon": ""
+}
