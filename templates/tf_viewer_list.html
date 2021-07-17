@@ -20,9 +20,9 @@
             <div class="d-flex w-100 justify-content-between">
                 <h6 class="mb-1 text-truncate" style="flex: 1;">
                     <a href="" target="_blank" rel="noopener noreferrer" id="item-name"></a>
-                    <a href="#" class="ml-1 badge badge-secondary" style="vertical-align: top;" id="subtitle"></a>
+                    <a href="#" class="ml-1 badge badge-secondary" id="subtitle"></a>
                 </h6>
-                <span class="font-weight-normal" id="datetime"></span>
+                <span class="text-nowrap" id="datetime"></span>
             </div>
             <div class="collapse" id="more-items"></div>
         </li>
@@ -35,16 +35,16 @@
 </div>
 <!--전체-->
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.7.0/animate.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha512-SfTiTlX6kk+qitfevl/7LibUOeJWlt9rbyDn92a1DqWOw9vWG2MFoays0sgObmWazO5BQPiFucnnEAjpAB+/Sw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 <!--context menu-->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.8.0/jquery.contextMenu.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.8.0/jquery.contextMenu.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.8.0/jquery.ui.position.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.min.css" integrity="sha512-SWjZLElR5l3FxoO9Bt9Dy3plCWlBi1Mc9/OlojDPwryZxO0ydpZgvXMLhV6jdEyULGNWjKgZWiX/AMzIvZ4JuA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.min.js" integrity="sha512-kvg/Lknti7OoAw0GqMBP8B+7cGHvp4M9O9V6nAYG91FZVDMW3Xkkq5qrdMhrXiawahqU7IZ5CNsY/wWy1PpGTQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.ui.position.js" integrity="sha512-vBR2rismjmjzdH54bB2Gx+xSe/17U0iHpJ1gkyucuqlTeq+Q8zwL8aJDIfhQtnWMVbEKMzF00pmFjc9IPjzR7w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <style type="text/css">
 .small, small { font-size: 95%; }
+.badge-notify { font-size: 25%; position: absolute; left: 0.9rem; background-color: rgba(255, 0, 0, 0.7); }
 </style>
 
 <script type="text/javascript">
@@ -86,6 +86,11 @@
                 page += 1;
                 if (res.nomore) {
                     sentinel.innerHTML = "No more items";
+                    intersectionObserver.unobserve(sentinel);
+                } else if (counter < 15) {
+                    // Temporary fix
+                    intersectionObserver.unobserve(sentinel);
+                    intersectionObserver.observe(sentinel);
                 }
             })
         })
@@ -137,10 +142,10 @@
 
         template_clone.querySelector("#item-name").innerHTML = data.title;
         template_clone.querySelector("#item-name").href = `/${package_name}/down?${data.link}`;
-        template_clone.querySelector("#datetime").innerHTML = data.datetime;
         if (data.datetime.includes(":")) {
-            template_clone.querySelector("#datetime").setAttribute('class', 'font-weight-bold');
+            $(`<span class="badge badge-pill badge-danger badge-notify align-top">&nbsp;</span>`).insertBefore(template_clone.querySelector("#item-name"));
         }
+        template_clone.querySelector("#datetime").innerHTML = data.datetime;
         if (Boolean(data.subtitle)) {
             template_clone.querySelector("#subtitle").innerHTML = data.subtitle;
             template_clone.querySelector("#subtitle").href = `/${package_name}/down?${data.link}`;
