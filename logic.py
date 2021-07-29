@@ -133,7 +133,7 @@ class LogicMain(LogicModuleBase):
                     path_id = int(path_id.split('_')[1])
                     path_list = [''] + [x.strip() for x in ModelSetting.get('download_path').split('\n') if x.strip()]
                     download_path = path_list[path_id]
-                    result = downloader.self.add_download2(
+                    result = downloader.Logic.add_download2(
                         magnet, ModelSetting.get('download_program'), download_path, request_type=package_name, request_sub_type=''
                     )
                     logger.debug(result)
