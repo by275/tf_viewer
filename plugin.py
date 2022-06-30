@@ -44,6 +44,7 @@ class PlugIn:
             ["tv", "TV"],
             ["tani", "애니"],
             ["tmusic", "음악"],
+            ["adult", "성인"],
             ["log", "로그"],
         ],
         "category": "torrent",

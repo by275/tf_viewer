@@ -54,7 +54,7 @@ class LogicMain(LogicModuleBase):
         if sub == "setting":
             arg["package_name"] = package_name
             return render_template(f"{package_name}_{sub}.html", sub=sub, arg=arg)
-        if sub.startswith("t"):
+        if sub.startswith("t") or sub == "adult":
             arg.update(
                 {
                     "package_name": package_name,
@@ -174,7 +174,8 @@ class LogicMain(LogicModuleBase):
                 "subtitle": subtitle[0].text_content().strip() if subtitle else "",
                 "datetime": dtime[0].text_content().strip() if dtime else "",
             }
-            items.append(item)
+            if f"b_id={b_id}" in item["link"]:
+                items.append(item)
         return items
 
     def tf_view(self, url):
@@ -288,6 +289,6 @@ class LogicMain(LogicModuleBase):
             fname_from_header = unquote(fname_from_header)
             # 가끔 본문의 파일명에 &가 scrub 되는 경우가 있다.
             fname_from_header = fname_from_header.replace("& ", "").replace(" &", "").replace("&", " ")
-            if filename != fname_from_header:
+            if filename.replace(" ", "") != fname_from_header.replace(" ", ""):
                 raise ValueError(f"Filename mismatch: {filename} != {fname_from_header}")
         return res.content
