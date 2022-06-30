@@ -269,11 +269,13 @@ class LogicMain(LogicModuleBase):
         params = {x.get("name"): x.get("value") for x in input_hidden}
         # headers = {'Referer': ftender_short, 'User-Agent': ua}
 
-        ftender_hidden = "https://file.filetender.net/file7.php"
+        ftender_hidden = "https://file.filetender.com/Execdownload.php"
+        p = re.compile(r"(?:https?:\/\/)file\.filetender\.com\/.+\.php", re.IGNORECASE)
         for scr_element in doc.xpath("//script[not(@scr)]"):
-            script_text = scr_element.text_content()
-            if "filetender" in script_text:
-                ftender_hidden = re.findall(r"(?:https?://)?[\w/\-?=%.]+\.[\w/\-?=%.]+", script_text)[0]
+            m = re.search(p, scr_element.text_content())
+            if m:
+                ftender_hidden = m[0]
+                break
 
         if form_method.lower() == "post":
             res = self.session.post(ftender_hidden, data=params)
