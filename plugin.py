@@ -24,7 +24,7 @@ class PlugIn:
 
     plugin_info = {
         "category_name": "torrent",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "name": "tf_viewer",
         "home": "https://github.com/wiserain/tf_viewer",
         "more": "https://github.com/wiserain/tf_viewer",
